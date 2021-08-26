@@ -54,7 +54,7 @@ colList = np.load(os.path.join('..', 'ColorDict.npy'))
 with open (os.path.join('..', 'CellColorDict'), 'rb') as fp:
                 cellColorDict = pickle.load(fp)
 
-    
+
 random_cmap = vispy.color.colormap.Colormap(colList, controls=None, interpolation='zero')
 
 WT_01_05_19_sheath_cells = [3, 5, 6, 8, 10, 14, 15, 16, 18, 28, 29, 33, 34, 36, 38, 42, 50, 51, 56, 58, 76, 81, 83, 87, 95, 96, 97, 99, 106, 122, 127, 130, 133, 135, 136, 152, 159]
@@ -469,6 +469,12 @@ class DDN:
             return viewer
 
     class Segmentation:
+        
+        def CleanUpSinglePointSegmentation(seg):
+            print('removing small objects inside other non-background objects')
+            
+           
+        
         
         def get_3dseed_from_all_frames(bw, stack_shape, hole_min=0, bg_seed = True):
             from skimage.morphology import remove_small_objects
