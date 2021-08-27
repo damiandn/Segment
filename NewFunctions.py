@@ -476,6 +476,8 @@ class DDN:
            
         
         
+        
+        
         def get_3dseed_from_all_frames(bw, stack_shape, hole_min=0, bg_seed = True):
             from skimage.morphology import remove_small_objects
             out = remove_small_objects(bw>0, hole_min)
@@ -579,7 +581,52 @@ class DDN:
             
             np.save(os.path.join(path, 'seg', 'seeds', 'array', 'seeds_array.npy'), all_centroids)
             return all_centroids
+        
+        def FixSeedsAutomatically(path, total_file_nums):
+    
+            seeds = np.load(os.path.join(path, 'seg', 'seeds', 'array', 'seeds_array.npy'))
+            np.save(os.path.join(path, 'seg', 'seeds', 'array', 'seeds_array_backup.npy'), seeds)
+            seeds_list = list(seeds)
 
+            for timepoint in range(0, total_file_nums):
+                clear_output(wait=True)
+                print('running timepoint ' + str(timepoint))
+                small_centroids = []
+                im = np.load(path + '\\seg\\mem\\seg_' + str(timepoint) + '.npz')
+                im = im['arr_0']
+                im_raw = np.load(path + '\\processed_images\\mem\\mem_' + str(timepoint) + '.npz')
+                im_raw = im_raw['arr_0']
+                labs, _ = ndi.label(skimage.util.invert(im))
+                props = regionprops(labs)
+                for prop in props:
+                    if prop['Area'] == 1:
+                        small_centroids.append(prop['Centroid'])
+
+                for centroid in small_centroids:
+
+                    if DDN.Utils.IsPointInsideOtherLabel(labs, centroid):
+                        centroid_z, centroid_y, centroid_x = int(centroid[0]), int(centroid[1]), int(centroid[2])
+                        for i, point in enumerate(seeds_list):
+                                if point[0] == timepoint:
+                                    if point[1] == centroid_z:
+                                        if point[2] == centroid_y:
+                                            if point[3] == centroid_x:
+                                                seeds_list.pop(i)
+                    else:
+                        centroid = (int(centroid[0]), int(centroid[1]), int(centroid[2]))
+                        min_z, min_y, min_x, min_val = DDN.Utils.GetMinValuePositionAroundCentroid(im_raw, centroid, 4)
+                        for i, point in enumerate(seeds_list):
+                            if point[0] == timepoint:
+                                if point[1] == centroid[0]:
+                                    if point[2] == centroid[1]:
+                                        if point[3] == centroid[2]:
+                                            seeds_list[i][1] = min_z
+                                            seeds_list[i][2] = min_y
+                                            seeds_list[i][3] = min_x
+                                            
+            np.save(os.path.join(path, 'seg', 'seeds', 'array', 'seeds_array.npy'), seeds_list)
+
+   
     class Mesh:
     
         def GetMesh(myDict, track, timepoint, linewidth = 0.2, alpha = 0.3, edgecolor = 'k', facecolor = 'w'):
@@ -662,6 +709,38 @@ class DDN:
 
 
     class Utils:
+    
+        def GetMinValuePositionAroundCentroid(im, centroid, dist):     
+            """
+            Given an image, a centroid position, and a distance, returns the value and the coordinats of the lowest-intensity pixel
+            in range 'dist'
+            """
+            min_val = 9999
+            min_x = -1
+            min_y = -1
+            min_z = -1
+            for z in range(centroid[0]-dist, centroid[0] + dist+1):
+                for y in range(centroid[1]-dist, centroid[1] + dist+1):
+                    for x in range(centroid[2]-dist, centroid[2] + dist+1):
+                        if im[z][y][x] < min_val:
+                            min_val = im[z][y][x]
+                            min_z = z
+                            min_y = y
+                            min_x = x
+            return min_z, min_y, min_x, min_val
+
+
+    
+        def IsPointInsideOtherLabel(labs, centroid):
+            """given a labeled image and a centroid position, returns True if that centroid is surrounded by another 
+            (non background) label, and False if not"""
+            
+            centroid_z, centroid_y, centroid_x = int(centroid[0]), int(centroid[1]), int(centroid[2])           
+            label = labs[centroid_z, centroid_y, centroid_x]              
+            if labs[centroid_z, centroid_y-1, centroid_x-1] != 1 and labs[centroid_z, centroid_y-1, centroid_x+1] != 1 and labs[centroid_z, centroid_y+1, centroid_x+1] != 1 and labs[centroid_z, centroid_y+1, centroid_x-1] != 1:               
+                return True
+            else:
+                return False
     
         def checkDifferenceBetweenSeedArrays(tp, path):
             seed_new_temp = np.load(os.path.join(path, 'seg', 'seeds', 'array', 'seeds_array.npy'))
